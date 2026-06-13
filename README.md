@@ -23,7 +23,9 @@ A quick rundown of the actions included can be seen in the following table:
 |:----------:|:-----------------------------:|:--------------------------------------------------:|
 |     GET    |           /createdb           | Creates and populates the database with dummy data |
 |     GET    |               /               |                     VAmPI home                     |
-|     GET    |               /me             |           Displays the user that is logged in       |
+|     GET    |               /me             |  Displays the full profile of the logged-in user (email, admin, created_at, books count) |
+|     PUT    |               /me             |        Update the logged-in user's profile (email)        |
+|     PUT    |          /me/password         |  Change the logged-in user's password (old + new + confirm) |
 |     GET    |           /users/v1           |      Displays all users with basic information     |
 |     GET    |        /users/v1/_debug       |         Displays all details for all users         |
 |    POST    |       /users/v1/register      |                  Register new user                 |

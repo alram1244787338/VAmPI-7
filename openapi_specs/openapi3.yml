@@ -218,32 +218,39 @@ paths:
           - bearerAuth: []
         tags:
           - users
-        summary: Retrieves currently logged in user
-        description: Displays information about the currently authenticated user
+        summary: Retrieves currently logged in user profile
+        description: Displays full profile information about the currently authenticated user including username, email, admin status, account creation date, and books count.
         operationId: api_views.users.me
         responses:
           '200':
-            description: Display current user info
+            description: Display current user profile info
             content:
               application/json:
                 schema:
                   type: object
                   properties:
-                    data:
-                      type: object
-                      properties:
-                        admin:
-                          type: boolean
-                          example: false
-                        email:
-                          type: string
-                          example: 'mail1@mail.com'
-                        username:
-                          type: string
-                          example: 'name1'
                     status:
                       type: string
                       example: 'success'
+                    data:
+                      type: object
+                      properties:
+                        username:
+                          type: string
+                          example: 'name1'
+                        email:
+                          type: string
+                          example: 'mail1@mail.com'
+                        admin:
+                          type: boolean
+                          example: false
+                        created_at:
+                          type: string
+                          format: date-time
+                          example: '2026-06-13T09:00:00Z'
+                        books_count:
+                          type: integer
+                          example: 1
           '401':
             description: Unauthorized access due to expired, invalid, or missing token
             content:
@@ -259,7 +266,168 @@ paths:
                       enum:
                         - 'Signature expired. Please log in again.'
                         - 'Invalid token. Please log in again.'
-
+          '404':
+            description: User not found
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    status:
+                      type: string
+                      example: 'fail'
+                    message:
+                      type: string
+                      example: 'User not found.'
+    put:
+        security:
+          - bearerAuth: []
+        tags:
+          - users
+        summary: Update current user profile
+        description: Update the authenticated user's profile fields. Currently supports updating email. At least one field must be provided.
+        operationId: api_views.users.update_profile
+        requestBody:
+          description: Profile fields to update
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  email:
+                    type: string
+                    example: 'newemail@mail.com'
+                minProperties: 1
+          required: true
+        responses:
+          '200':
+            description: Profile updated successfully
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    status:
+                      type: string
+                      example: 'success'
+                    message:
+                      type: string
+                      example: 'Profile updated successfully.'
+                    data:
+                      type: object
+                      properties:
+                        username:
+                          type: string
+                          example: 'name1'
+                        email:
+                          type: string
+                          example: 'newemail@mail.com'
+                        admin:
+                          type: boolean
+                          example: false
+                        created_at:
+                          type: string
+                          format: date-time
+                          example: '2026-06-13T09:00:00Z'
+                        books_count:
+                          type: integer
+                          example: 1
+          '400':
+            description: Invalid request (bad email format, empty body, etc.)
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    status:
+                      type: string
+                      example: 'fail'
+                    message:
+                      type: string
+                      example: 'Please provide a valid email address.'
+          '401':
+            description: Unauthorized
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    status:
+                      type: string
+                      example: 'fail'
+                    message:
+                      type: string
+                      example: 'Invalid token. Please log in again.'
+  /me/password:
+    put:
+        security:
+          - bearerAuth: []
+        tags:
+          - users
+        summary: Change current user password
+        description: Change the authenticated user's password. Requires the old password for confirmation, plus the new password entered twice to prevent typos.
+        operationId: api_views.users.change_password
+        requestBody:
+          description: Password change fields
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  old_password:
+                    type: string
+                    example: 'pass1'
+                  new_password:
+                    type: string
+                    example: 'newpass1'
+                  confirm_password:
+                    type: string
+                    example: 'newpass1'
+                required:
+                  - old_password
+                  - new_password
+                  - confirm_password
+          required: true
+        responses:
+          '200':
+            description: Password changed successfully
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    status:
+                      type: string
+                      example: 'success'
+                    message:
+                      type: string
+                      example: 'Password updated successfully.'
+          '400':
+            description: Invalid request (wrong old password, mismatch, etc.)
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    status:
+                      type: string
+                      example: 'fail'
+                    message:
+                      type: string
+                      example: 'Old password is incorrect.'
+          '401':
+            description: Unauthorized
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    status:
+                      type: string
+                      example: 'fail'
+                    message:
+                      type: string
+                      example: 'Invalid token. Please log in again.'
   /users/v1/{username}:
     get:
       tags:
@@ -369,8 +537,8 @@ paths:
         - bearerAuth: [ ]
       tags:
         - users
-      summary: Update users email
-      description: Update a single users email
+      summary: Update users email (legacy)
+      description: Update a single users email. Consider using PUT /me instead for a unified profile update experience.
       operationId: api_views.users.update_email
       parameters:
         - name: username
@@ -392,9 +560,25 @@ paths:
                   example: 'mail3@mail.com'
         required: true
       responses:
-        '204':
+        '200':
           description: Successfully updated user email
-          content: {}
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: 'success'
+                  data:
+                    type: object
+                    properties:
+                      username:
+                        type: string
+                        example: 'name1'
+                      email:
+                        type: string
+                        example: 'mail3@mail.com'
         '400':
           description: Invalid request
           content:
@@ -429,8 +613,8 @@ paths:
         - bearerAuth: [ ]
       tags:
         - users
-      summary: Update users password
-      description: Update users password
+      summary: Update users password (legacy)
+      description: Update users password. Consider using PUT /me/password instead for a safer experience with old-password confirmation.
       operationId: api_views.users.update_password
       parameters:
         - name: username
@@ -452,9 +636,19 @@ paths:
                   example: 'pass4'
         required: true
       responses:
-        '204':
+        '200':
           description: Successfully updated users password
-          content: {}
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: 'success'
+                  message:
+                    type: string
+                    example: 'Password updated.'
         '400':
           description: Invalid request
           content:
