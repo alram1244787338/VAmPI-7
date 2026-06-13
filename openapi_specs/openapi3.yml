@@ -12,6 +12,21 @@ components:
       scheme: bearer
       bearerFormat: JWT
       x-bearerInfoFunc: models.user_model.User.decode_auth_token
+  responses:
+    RateLimitExceeded:
+      description: Rate limit exceeded – too many requests in the current window
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                type: string
+                enum: ['fail']
+                example: 'fail'
+              message:
+                type: string
+                example: 'Rate limit exceeded. Please try again later.'
 paths:
   /createdb:
     get:
@@ -59,6 +74,64 @@ paths:
                   vulnerable:
                     type: number
                     example: 1
+  /health:
+    get:
+      tags:
+        - system
+      summary: Runtime status and health check
+      description: >-
+        Returns runtime information including service readiness, database
+        initialization state, vulnerable mode flag, and current rate-limiting
+        configuration. Useful for monitoring and debugging.
+      operationId: api_views.main.health
+      responses:
+        '200':
+          description: Service health information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: ['ok', 'degraded']
+                    example: 'ok'
+                  service:
+                    type: string
+                    example: 'ready'
+                  database:
+                    type: object
+                    properties:
+                      initialized:
+                        type: boolean
+                        example: true
+                      reachable:
+                        type: boolean
+                        example: true
+                  vulnerable_mode:
+                    type: boolean
+                    example: true
+                  rate_limiting:
+                    type: object
+                    properties:
+                      globally_enabled:
+                        type: boolean
+                        example: true
+                      profiles:
+                        type: object
+                        description: Per-profile rate limit configuration
+                        additionalProperties:
+                          type: object
+                          properties:
+                            max_requests:
+                              type: integer
+                            window_seconds:
+                              type: integer
+                            enabled:
+                              type: boolean
+                  timestamp:
+                    type: integer
+                    example: 1718294400
   /users/v1:
     get:
       tags:
@@ -85,6 +158,8 @@ paths:
                         username:
                           type: string
                           example: 'name1'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
   /users/v1/_debug:
     get:
       tags:
@@ -117,6 +192,8 @@ paths:
                         username:
                           type: string
                           example: 'name1'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
   /users/v1/register:
     post:
       tags:
@@ -159,6 +236,8 @@ paths:
         '400':
           description: Invalid request
           content: {}
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
   /users/v1/login:
     post:
       tags:
@@ -190,7 +269,7 @@ paths:
                   properties:
                     auth_token:
                       type: string
-                      example: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2NzAxNjA2MTcsImlhdCI6MTY3MDE2MDU1Nywic3ViIjoiSm9obi5Eb2UifQ.n17N4AxTbL4_z65-NR46meoytauPDjImUxrLiUMSTQw'
+                      example: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2NzAxNjA2MTcsImlhdCI6MTY3MDE2MDU1Nywic3ViIjoiSm9obi5Eb2UifQ.n17N4AxTbL4_z65-NR46MeoytauPDjImUxrLiUMSTQw'
                     message:
                       type: string
                       example: 'Successfully logged in.'
@@ -212,6 +291,8 @@ paths:
                   message:
                     type: string
                     example: 'Password is not correct for the given username.'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
   /me:
     get:
         security:
@@ -303,6 +384,8 @@ paths:
                   message:
                     type: string
                     example: 'User not found'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
 
     delete:
       security:
@@ -515,6 +598,8 @@ paths:
                     user: 'name2'
                   - book_title: 'bookTitle47'
                     user: 'admin'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
     post:
       security:
         - bearerAuth: [ ]
@@ -648,3 +733,5 @@ paths:
                   message:
                     type: string
                     example: 'Book not found!'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'

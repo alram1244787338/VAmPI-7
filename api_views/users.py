@@ -7,6 +7,7 @@ from api_views.json_schemas import *
 from flask import jsonify, Response, request, json
 from models.user_model import User
 from app import vuln
+from rate_limiter import auth_limiter, read_limiter
 
 
 def error_message_helper(msg):
@@ -16,11 +17,13 @@ def error_message_helper(msg):
         return '{ "status": "fail", "message": "' + msg + '"}'
 
 
+@read_limiter.limit
 def get_all_users():
     return_value = jsonify({'users': User.get_all_users()})
     return return_value
 
 
+@read_limiter.limit
 def debug():
     return_value = jsonify({'users': User.get_all_users_debug()})
     return return_value
@@ -42,6 +45,7 @@ def me():
         return Response(json.dumps(responseObject), 200, mimetype="application/json")
         
 
+@read_limiter.limit
 def get_by_username(username):
     if User.get_user(username):
         return Response(str(User.get_user(username)), 200, mimetype="application/json")
@@ -49,6 +53,7 @@ def get_by_username(username):
         return Response(error_message_helper("User not found"), 404, mimetype="application/json")
 
 
+@auth_limiter.limit
 def register_user():
     request_data = request.get_json()
     # check if user already exists
@@ -82,6 +87,7 @@ def register_user():
         return Response(error_message_helper("User already exists. Please Log in."), 200, mimetype="application/json")
 
 
+@auth_limiter.limit
 def login_user():
     request_data = request.get_json()
 

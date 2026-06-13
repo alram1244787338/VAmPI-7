@@ -7,8 +7,10 @@ from flask import jsonify, Response, request, json
 from models.user_model import User
 from models.books_model import Book
 from app import vuln
+from rate_limiter import read_limiter
 
 
+@read_limiter.limit
 def get_all_books():
     return_value = jsonify({'Books': Book.get_all_books()})
     return return_value
@@ -42,6 +44,7 @@ def add_new_book():
             return Response(json.dumps(responseObject), 200, mimetype="application/json")
 
 
+@read_limiter.limit
 def get_by_title(book_title):
     resp = token_validator(request.headers.get('Authorization'))
     if "error" in resp:
