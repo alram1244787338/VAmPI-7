@@ -31,16 +31,79 @@ def me():
         return Response(error_message_helper(resp), 401, mimetype="application/json")
     else:
         user = User.query.filter_by(username=resp['sub']).first()
+        if not user:
+            return Response(error_message_helper("User not found."), 404, mimetype="application/json")
         responseObject = {
             'status': 'success',
-            'data': {
-                'username': user.username,
-                'email': user.email,
-                'admin': user.admin
-            }
+            'data': user.json_profile()
         }
         return Response(json.dumps(responseObject), 200, mimetype="application/json")
-        
+
+
+def update_profile():
+    request_data = request.get_json()
+    if not request_data:
+        return Response(error_message_helper("Request body must be valid JSON."), 400, mimetype="application/json")
+    try:
+        jsonschema.validate(request_data, update_profile_schema)
+    except jsonschema.exceptions.ValidationError as exc:
+        return Response(error_message_helper(str(exc.message)), 400, mimetype="application/json")
+    resp = token_validator(request.headers.get('Authorization'))
+    if "error" in resp:
+        return Response(error_message_helper(resp), 401, mimetype="application/json")
+    else:
+        user = User.query.filter_by(username=resp['sub']).first()
+        if not user:
+            return Response(error_message_helper("User not found."), 404, mimetype="application/json")
+        if 'email' in request_data:
+            email_val = request_data['email']
+            if not email_val or not email_val.strip():
+                return Response(error_message_helper("Email cannot be empty."), 400, mimetype="application/json")
+            regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+            if not re.search(regex, email_val):
+                return Response(error_message_helper("Please provide a valid email address."), 400, mimetype="application/json")
+            user.email = email_val
+        db.session.commit()
+        responseObject = {
+            'status': 'success',
+            'message': 'Profile updated successfully.',
+            'data': user.json_profile()
+        }
+        return Response(json.dumps(responseObject), 200, mimetype="application/json")
+
+
+def change_password():
+    request_data = request.get_json()
+    if not request_data:
+        return Response(error_message_helper("Request body must be valid JSON."), 400, mimetype="application/json")
+    try:
+        jsonschema.validate(request_data, update_password_schema)
+    except jsonschema.exceptions.ValidationError as exc:
+        return Response(error_message_helper(str(exc.message)), 400, mimetype="application/json")
+    resp = token_validator(request.headers.get('Authorization'))
+    if "error" in resp:
+        return Response(error_message_helper(resp), 401, mimetype="application/json")
+    else:
+        user = User.query.filter_by(username=resp['sub']).first()
+        if not user:
+            return Response(error_message_helper("User not found."), 404, mimetype="application/json")
+        old_password = request_data.get('old_password')
+        new_password = request_data.get('new_password')
+        confirm_password = request_data.get('confirm_password')
+        if user.password != old_password:
+            return Response(error_message_helper("Old password is incorrect."), 400, mimetype="application/json")
+        if new_password != confirm_password:
+            return Response(error_message_helper("New password and confirm password do not match."), 400, mimetype="application/json")
+        if new_password == old_password:
+            return Response(error_message_helper("New password must be different from the old password."), 400, mimetype="application/json")
+        user.password = new_password
+        db.session.commit()
+        responseObject = {
+            'status': 'success',
+            'message': 'Password updated successfully.'
+        }
+        return Response(json.dumps(responseObject), 200, mimetype="application/json")
+
 
 def get_by_username(username):
     if User.get_user(username):
@@ -51,6 +114,8 @@ def get_by_username(username):
 
 def register_user():
     request_data = request.get_json()
+    if not request_data:
+        return Response(error_message_helper("Request body must be valid JSON."), 400, mimetype="application/json")
     # check if user already exists
     user = User.query.filter_by(username=request_data.get('username')).first()
     if not user:
@@ -84,6 +149,8 @@ def register_user():
 
 def login_user():
     request_data = request.get_json()
+    if not request_data:
+        return Response(error_message_helper("Request body must be valid JSON."), 400, mimetype="application/json")
 
     try:
         # validate the data are in the correct form
@@ -131,15 +198,19 @@ def token_validator(auth_header):
 
 def update_email(username):
     request_data = request.get_json()
+    if not request_data:
+        return Response(error_message_helper("Request body must be valid JSON."), 400, mimetype="application/json")
     try:
         jsonschema.validate(request_data, update_email_schema)
-    except:
-        return Response(error_message_helper("Please provide a proper JSON body."), 400, mimetype="application/json")
+    except jsonschema.exceptions.ValidationError as exc:
+        return Response(error_message_helper("Please provide a proper JSON body. " + str(exc.message)), 400, mimetype="application/json")
     resp = token_validator(request.headers.get('Authorization'))
     if "error" in resp:
         return Response(error_message_helper(resp), 401, mimetype="application/json")
     else:
         user = User.query.filter_by(username=resp['sub']).first()
+        if not user:
+            return Response(error_message_helper("User not found."), 404, mimetype="application/json")
         if vuln:  # Regex DoS
             match = re.search(
                 r"^([0-9a-zA-Z]([-.\w]*[0-9a-zA-Z])*@{1}([0-9a-zA-Z][-\w]*[0-9a-zA-Z]\.)+[a-zA-Z]{2,9})$",
@@ -154,12 +225,12 @@ def update_email(username):
                         'email': user.email
                     }
                 }
-                return Response(json.dumps(responseObject), 204, mimetype="application/json")
+                return Response(json.dumps(responseObject), 200, mimetype="application/json")
             else:
                 return Response(error_message_helper("Please Provide a valid email address."), 400,
                                 mimetype="application/json")
         else:
-            regex = '^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$'
+            regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
             if (re.search(regex, request_data.get('email'))):
                 user.email = request_data.get('email')
                 db.session.commit()
@@ -170,7 +241,7 @@ def update_email(username):
                         'email': user.email
                     }
                 }
-                return Response(json.dumps(responseObject), 204, mimetype="application/json")
+                return Response(json.dumps(responseObject), 200, mimetype="application/json")
             else:
                 return Response(error_message_helper("Please Provide a valid email address."), 400,
                                 mimetype="application/json")
@@ -178,6 +249,8 @@ def update_email(username):
 
 def update_password(username):
     request_data = request.get_json()
+    if not request_data:
+        return Response(error_message_helper("Request body must be valid JSON."), 400, mimetype="application/json")
     resp = token_validator(request.headers.get('Authorization'))
     if "error" in resp:
         return Response(error_message_helper(resp), 401, mimetype="application/json")
@@ -192,15 +265,17 @@ def update_password(username):
                     return Response(error_message_helper("User Not Found"), 400, mimetype="application/json")
             else:
                 user = User.query.filter_by(username=resp['sub']).first()
+                if not user:
+                    return Response(error_message_helper("User not found."), 404, mimetype="application/json")
                 user.password = request_data.get('password')
                 db.session.commit()
             responseObject = {
                 'status': 'success',
-                'Password': 'Updated.'
+                'message': 'Password updated.'
             }
-            return Response(json.dumps(responseObject), 204, mimetype="application/json")
+            return Response(json.dumps(responseObject), 200, mimetype="application/json")
         else:
-            return Response(error_message_helper("Malformed Data"), 400, mimetype="application/json")
+            return Response(error_message_helper("Malformed Data: 'password' field is required."), 400, mimetype="application/json")
 
 
 def delete_user(username):
@@ -209,7 +284,7 @@ def delete_user(username):
         return Response(error_message_helper(resp), 401, mimetype="application/json")
     else:
         user = User.query.filter_by(username=resp['sub']).first()
-        if user.admin:
+        if user and user.admin:
             if bool(User.delete_user(username)):
                 responseObject = {
                     'status': 'success',

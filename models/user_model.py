@@ -15,6 +15,7 @@ class User(db.Model):
     password = db.Column(db.String(128), nullable=False)
     email = db.Column(db.String(128), nullable=False)
     admin = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
 
     books = relationship("Book", order_by=Book.id, back_populates="user")
 
@@ -23,6 +24,7 @@ class User(db.Model):
         self.email = email
         self.password = password
         self.admin = admin
+        self.created_at = datetime.datetime.utcnow()
 
     def __repr__(self):
         return f'{{"username": "{self.username}", "email": "{self.email}"}}'
@@ -57,6 +59,16 @@ class User(db.Model):
 
     def json_debug(self):
         return {'username': self.username, 'password': self.password, 'email': self.email, 'admin': self.admin}
+
+    def json_profile(self):
+        books_count = len(self.books) if self.books else 0
+        return {
+            'username': self.username,
+            'email': self.email,
+            'admin': self.admin,
+            'created_at': self.created_at.strftime('%Y-%m-%dT%H:%M:%SZ') if self.created_at else None,
+            'books_count': books_count
+        }
 
     @staticmethod
     def get_all_users():
