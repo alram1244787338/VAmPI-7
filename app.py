@@ -10,8 +10,10 @@ vuln = int(os.getenv('vulnerable', 1))
 # vuln=1
 # token alive for how many seconds?
 alive = int(os.getenv('tokentimetolive', 60))
+# server port (override via env var; default 5000)
+port = int(os.getenv('VAMPI_PORT', 5000))
 
 
-# start the app with port 5000 and debug on!
+# start the app with port from VAMPI_PORT env var and debug on!
 if __name__ == '__main__':
-    vuln_app.run(host='0.0.0.0', port=5000, debug=True)
+    vuln_app.run(host='0.0.0.0', port=port, debug=True)

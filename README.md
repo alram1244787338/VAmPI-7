@@ -23,6 +23,7 @@ A quick rundown of the actions included can be seen in the following table:
 |:----------:|:-----------------------------:|:--------------------------------------------------:|
 |     GET    |           /createdb           | Creates and populates the database with dummy data |
 |     GET    |               /               |                     VAmPI home                     |
+|     GET    |            /health            |  Runtime status: readiness, DB, vuln mode, limits  |
 |     GET    |               /me             |           Displays the user that is logged in       |
 |     GET    |           /users/v1           |      Displays all users with basic information     |
 |     GET    |        /users/v1/_debug       |         Displays all details for all users         |
@@ -88,6 +89,47 @@ If you would like to alter the timeout of the token created after login or if yo
      - One nice feature to running it this way is you can startup a 2nd container with `vulnerable=1` on a different port and flip easily between the two.
 
    - In the Dockerfile you will find two environment variables being set, the `ENV vulnerable=1` and the `ENV tokentimetolive=60`. Feel free to change it before running the docker build command.
+
+
+## Rate limiting & runtime status
+
+The most easily abused endpoints (`/users/v1/login`, `/users/v1/register`, the
+per-object lookups `/users/v1/{username}` and `/books/v1/{book_title}`, and the
+listing endpoints `/users/v1`, `/users/v1/_debug`, `/books/v1`) are protected by
+a lightweight, in-memory sliding-window rate limiter. When a client exceeds its
+window the API replies with `429` in the usual error envelope
+(`{ "status": "fail", "message": "..." }`) plus a `Retry-After` header. The
+limiter is keyed per client IP and per *profile*, and attaching it to a new
+endpoint is a one-line decorator (`@rate_limit('profile')`).
+
+> Note: the limiter is per-process and in-memory, so behind several workers the
+> effective limit is applied per worker. It is meant for demos/teaching, not as
+> production-grade protection.
+
+Everything is tunable via environment variables so you can dial limits up/down
+for local demos or load tests without touching code:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RATELIMIT_ENABLED` | `1` | Master on/off switch (`0` disables all throttling) |
+| `RATELIMIT_DEFAULT_LIMIT` / `RATELIMIT_DEFAULT_WINDOW` | `50` / `60` | Fallback limit/window (seconds) for any profile without its own setting |
+| `RATELIMIT_AUTH_LIMIT` / `RATELIMIT_AUTH_WINDOW` | `5` / `60` | `auth` profile — login & register |
+| `RATELIMIT_SENSITIVE_LIMIT` / `RATELIMIT_SENSITIVE_WINDOW` | `20` / `60` | `sensitive` profile — per-object lookups |
+| `RATELIMIT_BROWSE_LIMIT` / `RATELIMIT_BROWSE_WINDOW` | `40` / `60` | `browse` profile — listing endpoints |
+
+Any profile follows the generic pattern `RATELIMIT_<PROFILE>_LIMIT` /
+`RATELIMIT_<PROFILE>_WINDOW`, so a future `@rate_limit('comments')` endpoint
+automatically gains `RATELIMIT_COMMENTS_LIMIT` / `RATELIMIT_COMMENTS_WINDOW`
+knobs. A limit or window of `0` (or less) means "unlimited" for that profile.
+
+A runtime status endpoint is available at `/health` (no auth required). It
+reports whether the service is ready, whether the database has been initialised
+(via `/createdb` or a pre-existing db file), whether VAmPI is running in
+vulnerable mode, and the active rate-limiting configuration:
+
+~~~~
+curl http://127.0.0.1:5000/health
+~~~~
 
 
 ## Frequently asked questions
