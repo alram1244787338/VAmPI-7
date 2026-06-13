@@ -487,46 +487,90 @@ paths:
     get:
       tags:
         - books
-      summary: Retrieves all books
-      description: Retrieves all books
+      summary: Retrieves all books (paginated)
+      description: >-
+        Retrieves all books with optional pagination and title search.
+        Results are returned in a consistent envelope with pagination metadata.
       operationId: api_views.books.get_all_books
+      parameters:
+        - name: page
+          in: query
+          description: Page number (starting at 1)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+            example: 1
+        - name: per_page
+          in: query
+          description: Number of results per page (max 100)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+            example: 10
+        - name: search
+          in: query
+          description: Filter books by title keyword (case-insensitive substring match)
+          required: false
+          schema:
+            type: string
+            example: 'book'
       responses:
         '200':
-          description: See all books
+          description: Paginated list of all books
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  Books:
+                  status:
+                    type: string
+                    example: 'success'
+                  data:
                     type: array
                     items:
                       type: object
                       properties:
+                        id:
+                          type: integer
+                          example: 1
                         book_title:
                           type: string
-                        user:
+                          example: 'bookTitle77'
+                        owner:
                           type: string
-              example:
-                Books:
-                  - book_title: 'bookTitle77'
-                    user: 'name1'
-                  - book_title: 'bookTitle85'
-                    user: 'name2'
-                  - book_title: 'bookTitle47'
-                    user: 'admin'
+                          example: 'name1'
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        example: 3
+                      page:
+                        type: integer
+                        example: 1
+                      per_page:
+                        type: integer
+                        example: 10
+                      pages:
+                        type: integer
+                        example: 1
     post:
       security:
         - bearerAuth: [ ]
       tags:
         - books
       summary: Add new book
-      description: Add new book
+      description: >-
+        Add new book with title and secret content. The book is owned by the
+        authenticated user. Book titles must be globally unique.
       operationId: api_views.books.add_new_book
       requestBody:
-        description: >-
-          Add new book with title and secret content only available to the user
-          who added it.
+        description: Book title and secret content (both required).
         content:
           application/json:
             schema:
@@ -538,24 +582,42 @@ paths:
                 secret:
                   type: string
                   example: 'pass1secret'
+              required:
+                - book_title
+                - secret
         required: true
       responses:
-        '200':
+        '201':
           description: Successfully added a book
           content:
             application/json:
               schema:
                 type: object
                 properties:
+                  status:
+                    type: string
+                    enum: ['success']
+                    example: 'success'
                   message:
                     type: string
                     example: 'Book has been added.'
-                  status:
-                    type: string
-                    enum: ['success', 'fail']
-                    example: 'success'
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 4
+                      book_title:
+                        type: string
+                        example: 'book99'
+                      secret:
+                        type: string
+                        example: 'pass1secret'
+                      owner:
+                        type: string
+                        example: 'name1'
         '400':
-          description: Invalid request
+          description: Invalid request body
           content:
             application/json:
               schema:
@@ -567,9 +629,119 @@ paths:
                     example: 'fail'
                   message:
                     type: string
-                    example: 'Book Already exists!'
+                    example: 'Request body must be valid JSON.'
         '401':
-          description: User not authorized
+          description: User not authorized (missing or invalid token)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: ['fail']
+                    example: 'fail'
+                  message:
+                    type: string
+                    example: 'Invalid token. Please log in again.'
+        '409':
+          description: A book with this title already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: ['fail']
+                    example: 'fail'
+                  message:
+                    type: string
+                    example: 'Book with this title already exists.'
+  /books/v1/my:
+    get:
+      security:
+        - bearerAuth: [ ]
+      tags:
+        - books
+      summary: Retrieves the authenticated user's own books (paginated)
+      description: >-
+        Returns only books owned by the currently authenticated user, with
+        optional pagination and title search. Includes secret content since
+        the user owns these books.
+      operationId: api_views.books.get_my_books
+      parameters:
+        - name: page
+          in: query
+          description: Page number (starting at 1)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+            example: 1
+        - name: per_page
+          in: query
+          description: Number of results per page (max 100)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+            example: 10
+        - name: search
+          in: query
+          description: Filter books by title keyword (case-insensitive substring match)
+          required: false
+          schema:
+            type: string
+            example: 'book'
+      responses:
+        '200':
+          description: Paginated list of the user's own books
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: 'success'
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        book_title:
+                          type: string
+                          example: 'bookTitle77'
+                        secret:
+                          type: string
+                          example: 'secret for bookTitle77'
+                        owner:
+                          type: string
+                          example: 'name1'
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        example: 1
+                      page:
+                        type: integer
+                        example: 1
+                      per_page:
+                        type: integer
+                        example: 10
+                      pages:
+                        type: integer
+                        example: 1
+        '401':
+          description: User not authorized (missing or invalid token)
           content:
             application/json:
               schema:
@@ -590,8 +762,9 @@ paths:
         - books
       summary: Retrieves book by title along with secret
       description: >-
-        Retrieves book by title along with secret. Only the owner may retrieve
-        it
+        Retrieves book by title along with secret. In non-vulnerable mode only
+        the owner may retrieve it; in vulnerable mode any authenticated user
+        can read any book (BOLA).
       operationId: api_views.books.get_by_title
       parameters:
         - name: book_title
@@ -607,19 +780,24 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    book_title:
-                      type: string
-                      example: 'bookTitle77'
-                    owner:
-                      type: string
-                      example: 'name1'
-                    secret:
-                      type: string
-                      example: 'secret for bookTitle77'
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: ['success']
+                    example: 'success'
+                  data:
+                    type: object
+                    properties:
+                      book_title:
+                        type: string
+                        example: 'bookTitle77'
+                      secret:
+                        type: string
+                        example: 'secret for bookTitle77'
+                      owner:
+                        type: string
+                        example: 'name1'
         '401':
           description: User not authorized
           content:
@@ -647,4 +825,183 @@ paths:
                     example: 'fail'
                   message:
                     type: string
-                    example: 'Book not found!'
+                    example: 'Book not found.'
+    put:
+      security:
+        - bearerAuth: [ ]
+      tags:
+        - books
+      summary: Update an existing book (title and/or secret)
+      description: >-
+        Update the title and/or secret content of a book owned by the
+        authenticated user. At least one of book_title or secret must be
+        provided. Titles must remain globally unique.
+      operationId: api_views.books.update_book
+      parameters:
+        - name: book_title
+          in: path
+          description: Current title of the book to update
+          required: true
+          schema:
+            type: string
+            example: 'book99'
+      requestBody:
+        description: Fields to update (at least one required).
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                book_title:
+                  type: string
+                  example: 'book99-renamed'
+                secret:
+                  type: string
+                  example: 'new-secret-content'
+        required: true
+      responses:
+        '200':
+          description: Successfully updated the book
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: ['success']
+                    example: 'success'
+                  message:
+                    type: string
+                    example: 'Book updated.'
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 4
+                      book_title:
+                        type: string
+                        example: 'book99-renamed'
+                      secret:
+                        type: string
+                        example: 'new-secret-content'
+                      owner:
+                        type: string
+                        example: 'name1'
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: ['fail']
+                    example: 'fail'
+                  message:
+                    type: string
+                    example: 'Request body must be valid JSON.'
+        '401':
+          description: User not authorized (missing or invalid token)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: ['fail']
+                    example: 'fail'
+                  message:
+                    type: string
+                    example: 'Invalid token. Please log in again.'
+        '404':
+          description: Book not found or does not belong to the user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: ['fail']
+                    example: 'fail'
+                  message:
+                    type: string
+                    example: 'Book not found.'
+        '409':
+          description: A book with the new title already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: ['fail']
+                    example: 'fail'
+                  message:
+                    type: string
+                    example: 'A book with this title already exists.'
+    delete:
+      security:
+        - bearerAuth: [ ]
+      tags:
+        - books
+      summary: Delete a book owned by the authenticated user
+      description: >-
+        Permanently delete a book. Only the owner of the book may delete it.
+      operationId: api_views.books.delete_book
+      parameters:
+        - name: book_title
+          in: path
+          description: Title of the book to delete
+          required: true
+          schema:
+            type: string
+            example: 'book99'
+      responses:
+        '200':
+          description: Successfully deleted the book
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: ['success']
+                    example: 'success'
+                  message:
+                    type: string
+                    example: 'Book deleted.'
+        '401':
+          description: User not authorized (missing or invalid token)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: ['fail']
+                    example: 'fail'
+                  message:
+                    type: string
+                    example: 'Invalid token. Please log in again.'
+        '404':
+          description: Book not found or does not belong to the user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: ['fail']
+                    example: 'fail'
+                  message:
+                    type: string
+                    example: 'Book not found.'

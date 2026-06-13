@@ -33,3 +33,16 @@ add_book_schema = {
     },
     "required": ["book_title", "secret"]
 }
+
+update_book_schema = {
+    "type": "object",
+    "properties": {
+        "book_title": {"type": "string", "minLength": 1},
+        "secret": {"type": "string", "minLength": 1}
+    },
+    "anyOf": [
+        {"required": ["book_title"]},
+        {"required": ["secret"]}
+    ],
+    "additionalProperties": False
+}
